@@ -15,11 +15,11 @@ from utils.plotting import (
 )
 
 if __name__ == "__main__":
-    n = 100 # number of samples
-    d = 32 # dimension of the data
-    b = 4 # number of bits per sample
+    nb_samples = 100 # number of samples
+    dim = 32 # dimension of the data
+    nb_bits = 4 # number of bits per sample
 
-    X, S, b = init_polarquant_inputs(n=n, d=d, b=b, seed=42)
+    X, S, b = init_polarquant_inputs(n=nb_samples, d=dim, b=nb_bits, seed=42)
 
     R, Psi_by_level, Rho_by_level, J_by_level, Q_by_level, codebooks = polarquant(
         X, S, b
