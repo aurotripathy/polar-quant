@@ -1,3 +1,6 @@
+""" PolarQuant core functions for polar quantization of data in polar coordinates.
+https://arxiv.org/pdf/2502.02617
+"""
 import math
 import numpy as np
 from math import gamma
@@ -6,7 +9,7 @@ from math import gamma
 def random_rotation_matrix(rng: np.random.Generator, d: int) -> np.ndarray:
     """Random proper rotation in SO(d): orthogonal with det = +1."""
     M = rng.standard_normal((d, d))
-    Q, _ = np.linalg.qr(M)
+    Q, _ = np.linalg.qr(M) # random rotation after starting from Gaussian matrix M
     if np.linalg.det(Q) < 0:
         Q = Q.copy()
         Q[:, -1] *= -1.0
@@ -39,10 +42,10 @@ def polar_row(y: np.ndarray):
     rho_levels = []
 
     for _ in range(int(math.log2(d))):
-        a = r[0::2]
-        b = r[1::2]
-        psi = np.arctan2(b, a)
-        r = np.hypot(a, b)
+        a = r[0::2]  # start at 0, step by 2
+        b = r[1::2]  # start at 1, step by 2
+        psi = np.arctan2(b, a) # the angle 
+        r = np.hypot(a, b) # the magnitude 
         psi_levels.append(psi)
         rho_levels.append(r.copy())
 
@@ -57,7 +60,7 @@ def polar_transform_matrix(X: np.ndarray, S: np.ndarray):
     if S.shape != (d, d):
         raise ValueError("S has wrong shape")
 
-    X_pre = X @ S
+    X_preconditioned = X @ S
     L = int(math.log2(d))
 
     R = np.empty((n, 1), dtype=float)
@@ -65,7 +68,7 @@ def polar_transform_matrix(X: np.ndarray, S: np.ndarray):
     Rho_by_level = {ell: np.empty((n, d // (2**ell)), dtype=float) for ell in range(1, L + 1)}
 
     for i in range(n):
-        r_i, psi_levels, rho_levels = polar_row(X_pre[i])
+        r_i, psi_levels, rho_levels = polar_row(X_preconditioned[i])
         R[i, 0] = r_i
         for ell, psi in enumerate(psi_levels, start=1):
             Psi_by_level[ell][i, :] = psi
