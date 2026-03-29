@@ -12,23 +12,23 @@ def level_support(level: int):
     return 0.0, math.pi / 2.0
 
 
-def plot_angles_all_levels_after_precondition(
-    Psi_by_level: dict[int, np.ndarray] | None = None,
+def _to_zero_2pi_for_plot(psi: np.ndarray, level: int) -> np.ndarray:
+    """Map principal atan2 angles (-pi, pi] to [0, 2pi) for level-1 plots on a 0..2pi axis."""
+    out = np.asarray(psi, dtype=float)
+    if level != 1:
+        return out
+    return np.mod(out, 2.0 * math.pi)
+
+
+def _plot_angles_histogram_all_levels(
+    Psi_by_level: dict[int, np.ndarray],
     *,
-    X: np.ndarray | None = None,
-    S: np.ndarray | None = None,
+    suptitle: str,
+    level_title_tail: str,
     bins_hist: int = 80,
     save_path: str | None = None,
 ) -> None:
-    """Histogram of ψ at every level after preconditioning; x-axis ticks in units of π."""
-    if Psi_by_level is None:
-        if X is None or S is None:
-            raise TypeError(
-                "plot_angles_all_levels_after_precondition: "
-                "pass Psi_by_level, or both X and S"
-            )
-        _, Psi_by_level, _ = polar_transform_matrix(X, S)
-
+    """Shared stack of per-level ψ histograms on [0, 2π] x-axis."""
     levels = sorted(Psi_by_level.keys())
     nlev = len(levels)
     x_lo, x_hi = 0.0, 2.0 * math.pi
@@ -50,25 +50,75 @@ def plot_angles_all_levels_after_precondition(
 
     for ax, ell in zip(ax_list, levels):
         psi = np.asarray(Psi_by_level[ell], dtype=float).ravel()
-        ax.hist(psi, bins=bin_edges, density=True, alpha=0.75, color="C0")
+        psi_plot = _to_zero_2pi_for_plot(psi, ell)
+        ax.hist(psi_plot, bins=bin_edges, density=True, alpha=0.75, color="C0")
         ax.set_xlim(x_lo, x_hi)
         ax.set_xticks(x_ticks)
         ax.set_xticklabels(x_ticklabels)
         ax.set_ylabel("Density")
         ax.axvline(pi / 2.0, color="gray", linestyle=":", lw=0.9, alpha=0.7)
-        ax.set_title(
-            rf"Level $\ell={ell}$: $\psi$ ($X_{{\mathrm{{pre}}}} = X S$, polar)"
-        )
+        ax.set_title(rf"Level $\ell={ell}$: $\psi$ {level_title_tail}")
         ax.set_xlabel(x_label)
         ax.tick_params(axis="x", labelbottom=True)
-    fig.suptitle(
-        "Polar angles at all levels after preconditioning (pre-quantization)",
-        fontsize=12,
-    )
+    fig.suptitle(suptitle, fontsize=12)
     fig.tight_layout(rect=(0.0, 0.0, 1.0, 0.98))
     if save_path is not None:
         fig.savefig(save_path, dpi=150, bbox_inches="tight")
     plt.close(fig)
+
+
+def plot_angles_all_levels_after_precondition(
+    Psi_by_level: dict[int, np.ndarray] | None = None,
+    *,
+    X: np.ndarray | None = None,
+    S: np.ndarray | None = None,
+    bins_hist: int = 80,
+    save_path: str | None = None,
+) -> None:
+    """Histogram of ψ at every level after preconditioning; x-axis ticks in units of π."""
+    if Psi_by_level is None:
+        if X is None or S is None:
+            raise TypeError(
+                "plot_angles_all_levels_after_precondition: "
+                "pass Psi_by_level, or both X and S"
+            )
+        _, Psi_by_level, _ = polar_transform_matrix(X, S)
+
+    _plot_angles_histogram_all_levels(
+        Psi_by_level,
+        suptitle="Polar angles at all levels after preconditioning (pre-quantization)",
+        level_title_tail=r"($X_{\mathrm{pre}} = X S$, polar)",
+        bins_hist=bins_hist,
+        save_path=save_path,
+    )
+
+
+def plot_angles_all_levels_without_precondition(
+    Psi_by_level: dict[int, np.ndarray] | None = None,
+    *,
+    X: np.ndarray | None = None,
+    bins_hist: int = 80,
+    save_path: str | None = None,
+) -> None:
+    """Histogram of ψ at every level from raw X (identity S, no preconditioning)."""
+    if Psi_by_level is None:
+        if X is None:
+            raise TypeError(
+                "plot_angles_all_levels_without_precondition: "
+                "pass Psi_by_level or X"
+            )
+        X = np.asarray(X, dtype=float)
+        n, d = X.shape
+        S_identity = np.eye(d, dtype=float)
+        _, Psi_by_level, _ = polar_transform_matrix(X, S_identity)
+
+    _plot_angles_histogram_all_levels(
+        Psi_by_level,
+        suptitle="Polar angles at all levels without preconditioning (raw X, S = I)",
+        level_title_tail=r"(raw $X$, polar; no preconditioning)",
+        bins_hist=bins_hist,
+        save_path=save_path,
+    )
 
 
 def _normalize_radii_for_polar(
@@ -92,7 +142,8 @@ def plot_level_histogram_with_codebook(
     lo, hi = level_support(level)
 
     fig = plt.figure(figsize=(10, 5))
-    plt.hist(psi_values, bins=bins_hist, density=True, alpha=0.6)
+    psi_plot = _to_zero_2pi_for_plot(np.asarray(psi_values).ravel(), level)
+    plt.hist(psi_plot, bins=bins_hist, density=True, alpha=0.6)
     for x in boundaries:
         plt.axvline(x, linewidth=1)
     for c in centroids:
@@ -141,15 +192,17 @@ def plot_angle_scatter_minimized_quantized(
         psi = psi[idx]
         q = q[idx]
 
-    resid = psi - q
-    rmse = float(np.sqrt(np.mean(resid**2)))
     J = quantize_angles(psi, boundaries)
+    psi_plot = _to_zero_2pi_for_plot(psi, level)
+    q_plot = _to_zero_2pi_for_plot(q, level)
+    resid = psi_plot - q_plot
+    rmse = float(np.sqrt(np.mean((psi - q) ** 2)))
     K = len(centroids)
 
     fig, axes = plt.subplots(1, 3, figsize=(14, 4.2))
 
     ax = axes[0]
-    ax.scatter(psi, q, s=5, alpha=0.22, c="C0", rasterized=True)
+    ax.scatter(psi_plot, q_plot, s=5, alpha=0.22, c="C0", rasterized=True)
     ax.plot([lo, hi], [lo, hi], "k--", lw=1.0, alpha=0.65, label="y = x")
     ax.set_xlim(lo, hi)
     ax.set_ylim(lo, hi)
@@ -160,7 +213,7 @@ def plot_angle_scatter_minimized_quantized(
     ax.legend(loc="upper left", fontsize=8)
 
     ax = axes[1]
-    ax.scatter(psi, resid, s=5, alpha=0.22, c="C1", rasterized=True)
+    ax.scatter(psi_plot, resid, s=5, alpha=0.22, c="C1", rasterized=True)
     ax.axhline(0.0, color="k", lw=0.85)
     for x in boundaries[1:-1]:
         ax.axvline(x, color="gray", lw=0.45, alpha=0.55)
@@ -174,7 +227,7 @@ def plot_angle_scatter_minimized_quantized(
     ax = axes[2]
     nonempty = [k for k in range(K) if np.any(J == k)]
     if nonempty:
-        data = [psi[J == k] for k in nonempty]
+        data = [psi_plot[J == k] for k in nonempty]
         parts = ax.violinplot(
             data,
             positions=nonempty,
@@ -238,6 +291,9 @@ def plot_polar_original_vs_quantized(
         q = q[idx]
         if rho is not None:
             rho = rho[idx]
+
+    psi = _to_zero_2pi_for_plot(psi, level)
+    q = _to_zero_2pi_for_plot(q, level)
 
     if rho is not None:
         r_vis = _normalize_radii_for_polar(rho)
@@ -345,6 +401,9 @@ def plot_original_vs_quantized(
         psi_values = psi_values[idx]
         q_values = q_values[idx]
 
+    psi_values = _to_zero_2pi_for_plot(psi_values, level)
+    q_values = _to_zero_2pi_for_plot(q_values, level)
+
     fig = plt.figure(figsize=(6, 6))
     plt.scatter(psi_values, q_values, s=8, alpha=0.35)
     plt.xlim(lo, hi)
@@ -407,9 +466,6 @@ def visualize_all_levels(
         plot_level_histogram_with_codebook(psi_values, boundaries, centroids, ell)
         plot_quantizer_step(boundaries, centroids, ell)
         plot_original_vs_quantized(psi_values, q_values, ell)
-        plot_angle_scatter_minimized_quantized(
-            psi_values, q_values, boundaries, centroids, ell
-        )
         plot_polar_original_vs_quantized(
             psi_values, q_values, boundaries, ell, rho_values=rho_flat
         )

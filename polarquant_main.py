@@ -2,9 +2,8 @@ import matplotlib.pyplot as plt
 
 from polarquant_core import *
 from utils.plotting import (
-    level_support,
-    plot_angle_scatter_minimized_quantized,
     plot_angles_all_levels_after_precondition,
+    plot_angles_all_levels_without_precondition,
     plot_error_histogram,
     plot_level_histogram_with_codebook,
     plot_mse_by_level,
@@ -16,7 +15,7 @@ from utils.plotting import (
 
 if __name__ == "__main__":
     nb_samples = 100 # number of samples
-    dim = 32 # dimension of the data
+    dim = 512 # dimension of the data
     nb_bits = 4 # number of bits per sample
 
     X, S, b = init_polarquant_inputs(n=nb_samples, d=dim, b=nb_bits, seed=42)
@@ -27,6 +26,9 @@ if __name__ == "__main__":
 
     plot_angles_all_levels_after_precondition(
         Psi_by_level, save_path="angles_all_levels_after_precondition.png"
+    )
+    plot_angles_all_levels_without_precondition(
+        X=X, save_path="angles_all_levels_without_precondition.png"
     )
 
     print("R shape:", R.shape)

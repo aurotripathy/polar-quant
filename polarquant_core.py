@@ -3,7 +3,6 @@ https://arxiv.org/pdf/2502.02617
 """
 import math
 import numpy as np
-from math import gamma
 
 
 def random_rotation_matrix(rng: np.random.Generator, d: int) -> np.ndarray:
@@ -63,6 +62,7 @@ def polar_transform_matrix(X: np.ndarray, S: np.ndarray):
     X_preconditioned = X @ S
     L = int(math.log2(d))
 
+    # Preallocate output arrays
     R = np.empty((n, 1), dtype=float)
     Psi_by_level = {ell: np.empty((n, d // (2**ell)), dtype=float) for ell in range(1, L + 1)}
     Rho_by_level = {ell: np.empty((n, d // (2**ell)), dtype=float) for ell in range(1, L + 1)}
@@ -87,11 +87,16 @@ def angle_pdf(level: int, x: np.ndarray) -> np.ndarray:
         return pdf
 
     m = 2 ** (level - 1)
-    c = gamma(m) / (2 ** (m - 1) * (gamma(m) ** 2))
+    # c = 1 / (2^(m-1) * Gamma(m)); use logs — Gamma(m) overflows for m ~ 170+ in float64
+    log_c = -(m - 1) * math.log(2.0) - math.lgamma(m)
 
     pdf = np.zeros_like(x)
     mask = (x >= 0.0) & (x <= math.pi / 2.0)
-    pdf[mask] = c * (np.sin(2.0 * x[mask]) ** (m - 1))
+    xm = x[mask]
+    s = np.sin(2.0 * xm)
+    s = np.maximum(s, 1e-300)
+    log_pdf = log_c + (m - 1) * np.log(s)
+    pdf[mask] = np.exp(log_pdf)
     return pdf
 
 
