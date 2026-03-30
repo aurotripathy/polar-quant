@@ -14,11 +14,19 @@ from utils.plotting import (
 )
 
 if __name__ == "__main__":
-    nb_samples = 100 # number of samples
-    dim = 512 # dimension of the data
-    nb_bits = 4 # number of bits per sample
+    load_inputs_from_dataset = True  # False: synthetic Gaussian X via init_polarquant_inputs
 
-    X, S, b = init_polarquant_inputs(n=nb_samples, d=dim, b=nb_bits, seed=42)
+    nb_samples = 100
+    dim = 512
+    nb_bits = 4
+    seed = 42
+
+    if load_inputs_from_dataset:
+        X, S, b = init_polarquant_inputs_from_file(b=nb_bits, seed=seed)
+    else:
+        X, S, b = init_polarquant_inputs(
+            n=nb_samples, d=dim, b=nb_bits, seed=seed
+        )
 
     R, Psi_by_level, Rho_by_level, J_by_level, Q_by_level, codebooks = polarquant(
         X, S, b
@@ -31,6 +39,7 @@ if __name__ == "__main__":
         X=X, save_path="angles_all_levels_without_precondition.png"
     )
 
+    print("X shape (n_samples, dim):", X.shape)
     print("R shape:", R.shape)
     for ell in sorted(J_by_level.keys()):
         print(f"Level {ell}:")

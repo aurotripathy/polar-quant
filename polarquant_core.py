@@ -1,7 +1,10 @@
 """ PolarQuant core functions for polar quantization of data in polar coordinates.
 https://arxiv.org/pdf/2502.02617
 """
+import json
 import math
+from pathlib import Path
+
 import numpy as np
 
 
@@ -23,6 +26,58 @@ def init_polarquant_inputs(
 ):
     rng = np.random.default_rng(seed)
     X = rng.standard_normal((n, d))
+    S = random_rotation_matrix(rng, d)
+    return X, S, b
+
+
+def init_polarquant_inputs_from_file(
+    path: str | Path | None = None,
+    b: int = 4,
+    seed: int = 0,
+):
+    """
+    Load ``X`` from a dataset JSON file (list-of-lists matrix); set ``n``, ``d`` from its shape.
+
+    Same as ``init_polarquant_inputs`` after loading data: ``S`` is a random rotation and
+    ``b`` is the bits-per-angle argument passed through to ``polarquant``.
+
+    Parameters
+    ----------
+    path
+        Path to a rectangular JSON float matrix. If ``None``, uses the first ``*.json``
+        under ``<repo>/dataset/``.
+    b
+        Quantization bit width (same role as in ``init_polarquant_inputs``).
+    seed
+        RNG seed for drawing ``S``.
+    """
+    repo_root = Path(__file__).resolve().parent
+    dataset_dir = repo_root / "dataset"
+
+    if path is None:
+        candidates = sorted(dataset_dir.glob("*.json"))
+        if not candidates:
+            raise FileNotFoundError(f"no .json files in {dataset_dir}")
+        file_path = candidates[0]
+    else:
+        file_path = Path(path)
+        if not file_path.is_file():
+            raise FileNotFoundError(file_path)
+
+    raw = json.loads(file_path.read_text(encoding="utf-8"))
+    X = np.asarray(raw, dtype=float)
+    if X.ndim != 2:
+        raise ValueError(
+            f"dataset must be a 2D JSON array, got shape {X.shape} (ndim={X.ndim})"
+        )
+
+    n, d = X.shape
+    if d <= 0 or (d & (d - 1)) != 0:
+        raise ValueError(
+            f"polar transform requires d a positive power of 2, got d={d} from {file_path}"
+        )
+
+    rng = np.random.default_rng(seed)
     S = random_rotation_matrix(rng, d)
     return X, S, b
 

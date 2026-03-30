@@ -1,0 +1,23 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "PolarQuant: polarquant_main",
+            "type": "python",
+            "request": "launch",
+            "program": "${workspaceFolder}/polarquant_main.py",
+            "cwd": "${workspaceFolder}",
+            "console": "integratedTerminal",
+            "justMyCode": true
+        },
+        {
+            "name": "PolarQuant: cache_loader (dataset dims)",
+            "type": "python",
+            "request": "launch",
+            "program": "${workspaceFolder}/utils/cache_loader.py",
+            "cwd": "${workspaceFolder}",
+            "console": "integratedTerminal",
+            "justMyCode": true
+        }
+    ]
+}

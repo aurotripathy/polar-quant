@@ -1,9 +1,18 @@
 import math
+from pathlib import Path
 
 import matplotlib.pyplot as plt
 import numpy as np
 
 from polarquant_core import polar_transform_matrix, quantize_angles
+
+PLOTS_DIR = Path(__file__).resolve().parent.parent / "plots"
+
+
+def plots_output_path(filename: str) -> str:
+    """Resolve ``filename`` under ``plots/`` (directory created if missing)."""
+    PLOTS_DIR.mkdir(parents=True, exist_ok=True)
+    return str(PLOTS_DIR / filename)
 
 
 def level_support(level: int):
@@ -63,7 +72,9 @@ def _plot_angles_histogram_all_levels(
     fig.suptitle(suptitle, fontsize=12)
     fig.tight_layout(rect=(0.0, 0.0, 1.0, 0.98))
     if save_path is not None:
-        fig.savefig(save_path, dpi=150, bbox_inches="tight")
+        p = Path(save_path)
+        out = str(p) if p.is_absolute() else plots_output_path(p.name)
+        fig.savefig(out, dpi=150, bbox_inches="tight")
     plt.close(fig)
 
 
@@ -258,7 +269,7 @@ def plot_angle_scatter_minimized_quantized(
         y=1.02,
     )
     fig.tight_layout()
-    out = f"level_{level}_angle_scatter_min_quantized.png"
+    out = plots_output_path(f"level_{level}_angle_scatter_min_quantized.png")
     fig.savefig(out, dpi=150, bbox_inches="tight")
     plt.close(fig)
 
@@ -378,7 +389,7 @@ def plot_polar_original_vs_quantized(
     ax.legend(loc="lower left", bbox_to_anchor=(0.02, 0.02), fontsize=8)
 
     fig.tight_layout()
-    out = f"level_{level}_polar_original_vs_quantized.png"
+    out = plots_output_path(f"level_{level}_polar_original_vs_quantized.png")
     fig.savefig(out, dpi=150, bbox_inches="tight")
     plt.close(fig)
 
